@@ -7,12 +7,14 @@ const images = {};
 const step = {};
 
 bot.start((ctx) => {
-    ctx.replyWithHTML(`Assalomu alaykum ${ctx.from.username 
-        ? `<a href="https://t.me/${ctx.from.username}">${ctx.from.first_name}</a>` 
-        : ctx.from.first_name}. Bizning <a href="https://t.me/${ctx.botInfo.username}">${ctx.botInfo.first_name}</a> botimizga xush kelibsiz! Menga rasm jo\'natib tez va oson PDF ga aylantiring.`,
+    const username = ctx.from.username ? `<a href="https://t.me/${ctx.from.username}">${ctx.from.first_name}</a>` : ctx.from.first_name;
+    const botname = ctx.botInfo.first_name;
+    const botUsername = ctx.botInfo.username;
+    ctx.replyWithHTML(
+        `Assalomu alaykum ${username}. Bizning <a href="https://t.me/${botUsername}">${botname}</a> botimizga xush kelibsiz! Menga rasm jo'natib tez va oson PDF ga aylantiring.`,
         Markup.keyboard(['Image to PDF']).oneTime().resize()
     );
-})
+});
 
 bot.on('photo', async (ctx) => {
     const fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
@@ -20,14 +22,14 @@ bot.on('photo', async (ctx) => {
     const chatId = ctx.chat.id;
 
     if (!images[chatId]) images[chatId] = [];
-    if (images[chatId].length === 0) ctx.reply('Rasm qabul qilindi. Rasmlarni junatib bo\'lganingizdan so\'ng Image to PDF tugmasini bosing.')
+    if (images[chatId].length === 0) ctx.reply('Rasm qabul qilindi. Rasmlarni junatib bo\'lganingizdan so\'ng "Image to PDF" tugmasini bosing.');
     images[chatId].push(fileUrl);
 });
 
-bot.hears('Image to PDF', async (ctx) => {
+bot.hears('Image to PDF', (ctx) => {
     const chatId = ctx.chat.id;
 
-    if (!images[chatId] || images[chatId].length === 0) return ctx.reply('Siz hech qanday rasm yubormadingiz.')
+    if (!images[chatId] || images[chatId].length === 0) return ctx.reply('Siz hech qanday rasm yubormadingiz.');
 
     step[chatId] = 'awaiting_filename';
     ctx.reply('Iltimos, PDF uchun fayl nomini kiriting:');
@@ -36,25 +38,26 @@ bot.hears('Image to PDF', async (ctx) => {
 bot.on('text', async (ctx) => {
     const chatId = ctx.chat.id;
 
-    if (!images[chatId] || images[chatId].length === 0) return ctx.reply('Siz hech qanday rasm yubormadingiz.')
+    if (!images[chatId] || images[chatId].length === 0) return ctx.reply('Siz hech qanday rasm yubormadingiz.');
     if (step[chatId] === undefined) {
         ctx.deleteMessage(ctx.message.message_id)
             .then(() => ctx.reply('Xabarlarga ruxsat yo\'q.'))
-            .catch((err) => console.error('Xabarni o\'chirishda xatolik:', err))
+            .catch((err) => console.error('Xabarni o\'chirishda xatolik:', err));
         return;
     }
 
     if (step[chatId] === 'awaiting_filename') {
-        const filename = ctx.message.text;
+        const filename = ctx.message.text.trim();
 
         if (!filename) return ctx.reply('Fayl nomi noto‘g‘ri. Yaroqli fayl nomini kiriting:');
         await ctx.reply('So‘rovingiz ko‘rib chiqilmoqda, kuting...');
+
         const doc = new PDFDocument({ autoFirstPage: false });
         const pdfPath = `./${filename}.pdf`;
         doc.pipe(fs.createWriteStream(pdfPath));
 
         try {
-            for (let imageUrl of images[chatId]) {
+            for (const imageUrl of images[chatId]) {
                 const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
                 const imageBuffer = Buffer.from(response.data, 'binary');
                 const img = doc.openImage(imageBuffer);
@@ -70,7 +73,7 @@ bot.on('text', async (ctx) => {
 
             fs.unlinkSync(pdfPath);
             images[chatId] = [];
-            ctx.replyWithHTML(`File muvaffaqiyatli yuklandi✔.`)
+            ctx.replyWithHTML('File muvaffaqiyatli yuklandi✔.');
             delete step[chatId];
         } catch (error) {
             console.error(error);
@@ -80,5 +83,6 @@ bot.on('text', async (ctx) => {
 });
 
 bot.launch().then(() => console.log('Bot is running...'));
+
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
