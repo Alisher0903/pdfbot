@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-		"dev": "nodemon index.js"
+    "dev": "nodemon index.js"
   },
   "keywords": [],
   "author": "Sodiqov Alisher",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.7.2",
+    "express": "^4.21.0",
     "pdfkit": "^0.15.0",
     "telegraf": "^4.16.3"
   },
