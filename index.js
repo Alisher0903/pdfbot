@@ -12,7 +12,7 @@ const app = express();
 app.use(bot.webhookCallback('/bot'));
 
 // Vercel uchun webhook URL ni sozlash
-bot.telegram.setWebhook(`https://YOUR_VERCEL_URL.vercel.app/bot`);
+bot.telegram.setWebhook(`https://pdf-bot.vercel.app/bot`);
 
 // Bot "start" komandasi
 bot.start((ctx) => {
