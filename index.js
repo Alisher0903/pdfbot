@@ -6,9 +6,11 @@ const axios = require('axios');
 const PDFDocument = require('pdfkit');
 const express = require('express');
 const path = require('path');
+const ONE_TOKEN="6989077644:AAFfpFi5ofIddWsnyT82SzVQPE3ZQwKKuyM"
+const TWO_TOKEN="7707863603:AAFbEfe64qM_ReMM08WJ4saAtWiwHpE1EDw"
 
 // Telegram bot token
-const bot = new Telegraf(process.env.TWO_TOKEN);
+const bot = new Telegraf(TWO_TOKEN);
 
 // Express server
 const app = express();
