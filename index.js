@@ -1,18 +1,44 @@
-const { Telegraf, Markup } = require('telegraf');
+require('dotenv').config();
+
+const {Telegraf, Markup} = require('telegraf');
 const fs = require('fs');
 const axios = require('axios');
 const PDFDocument = require('pdfkit');
 const express = require('express');
+const path = require('path');
 
 // Telegram bot token
-const bot = new Telegraf('6989077644:AAFfpFi5ofIddWsnyT82SzVQPE3ZQwKKuyM');
+const bot = new Telegraf(process.env.ONE_TOKEN);
 
 // Express server
 const app = express();
 app.use(bot.webhookCallback('/bot'));
 
 // Vercel uchun webhook URL ni sozlash
-// bot.telegram.setWebhook(`https://pdf-bot.vercel.app/bot`);
+bot.telegram.setWebhook(`https://pdf-bot.vercel.app/bot`);
+
+// "images" papkasini tekshirish va yaratish
+const createImagesFolder = () => {
+    const dir = './images';
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+    }
+};
+
+// Papkani va ichidagi fayllarni o'chirish
+const deleteFolderRecursive = (folderPath) => {
+    if (fs.existsSync(folderPath)) {
+        fs.readdirSync(folderPath).forEach((file) => {
+            const curPath = path.join(folderPath, file);
+            if (fs.lstatSync(curPath).isDirectory()) {
+                deleteFolderRecursive(curPath); // Recursive o'chirish
+            } else {
+                fs.unlinkSync(curPath); // Faylni o'chirish
+            }
+        });
+        fs.rmdirSync(folderPath); // Papkani o'chirish
+    }
+};
 
 // Bot "start" komandasi
 bot.start((ctx) => {
@@ -30,6 +56,7 @@ bot.start((ctx) => {
 // Rasm qabul qilish
 const images = {};
 bot.on('photo', async (ctx) => {
+    createImagesFolder(); // "images" papkasini yaratish
     const fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
     const fileUrl = await ctx.telegram.getFileLink(fileId);
     const chatId = ctx.chat.id;
@@ -37,7 +64,11 @@ bot.on('photo', async (ctx) => {
     if (!images[chatId]) images[chatId] = [];
     if (images[chatId].length === 0)
         ctx.reply('Rasm qabul qilindi. Rasmlarni junatib bo\'lganingizdan so\'ng "Image to PDF" tugmasini bosing.');
-    images[chatId].push(fileUrl);
+
+    const filePath = `./images/${chatId}-${Date.now()}.jpg`;
+    const response = await axios.get(fileUrl, {responseType: 'arraybuffer'});
+    fs.writeFileSync(filePath, response.data);
+    images[chatId].push(filePath);
 });
 
 // PDF yaratuvchi tugma
@@ -71,26 +102,25 @@ bot.on('text', async (ctx) => {
         if (!filename) return ctx.reply('Fayl nomi noto‘g‘ri. Yaroqli fayl nomini kiriting:');
         await ctx.reply('So‘rovingiz ko‘rib chiqilmoqda, kuting...');
 
-        const doc = new PDFDocument({ autoFirstPage: false });
+        const doc = new PDFDocument({autoFirstPage: false});
         const pdfPath = `./${filename}.pdf`;
         doc.pipe(fs.createWriteStream(pdfPath));
 
         try {
-            for (const imageUrl of images[chatId]) {
-                const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-                const imageBuffer = Buffer.from(response.data, 'binary');
-                const img = doc.openImage(imageBuffer);
+            for (const imagePath of images[chatId]) {
+                const img = doc.openImage(imagePath);
 
-                doc.addPage({ size: [img.width, img.height] });
-                doc.image(imageBuffer, 0, 10, { width: img.width, height: img.height });
+                doc.addPage({size: [img.width, img.height]});
+                doc.image(imagePath, 0, 10, {width: img.width, height: img.height});
             }
 
             doc.end();
 
             await ctx.replyWithChatAction('upload_document');
-            await ctx.replyWithDocument({ source: pdfPath });
+            await ctx.replyWithDocument({source: pdfPath});
 
-            fs.unlinkSync(pdfPath);
+            fs.unlinkSync(pdfPath); // PDF faylni o'chirish
+            deleteFolderRecursive('./images'); // Papkani o'chirish
             images[chatId] = [];
             ctx.replyWithHTML('File muvaffaqiyatli yuklandi✔.');
             delete step[chatId];
