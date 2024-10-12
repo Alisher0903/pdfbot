@@ -8,7 +8,7 @@ const express = require('express');
 const path = require('path');
 
 // Telegram bot token
-const bot = new Telegraf(process.env.ONE_TOKEN);
+const bot = new Telegraf(process.env.TWO_TOKEN);
 
 // Express server
 const app = express();
